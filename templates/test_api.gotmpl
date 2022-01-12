@@ -1,0 +1,67 @@
+{{ define "test" }}
+  {
+  Name: "{{ .Operation.OperationID | export }}",
+  Args: Args{Method: "{{ .Method }}", URL: {{ path .Path .Operation.Parameters | printf "%#v" }}{{ if .Operation.Parameters | body }}, Data: {{ .Operation.Parameters | body | printf "%#v" }}{{ end }}},
+  Want: Want{
+  {{- if index .Operation.Responses "200" }}
+    {{- with index .Operation.Responses "200" }}
+      Status: 200,
+      Body: {{ if ne (len .Examples) 0 }}{{ with index .Examples "test" }}{{ if . }}{{ . | printf "%#v" }}{{ else }}nil{{ end }}{{ else }}nil{{ end }}{{ else }}nil{{ end }},
+    {{ end }}
+  {{ else if index .Operation.Responses "204" }}
+    {{- with index .Operation.Responses "204" }}
+      Status: 204,
+      Body: {{ if ne (len .Examples) 0 }}{{ with index .Examples "test" }}{{ if . }}{{ . | printf "%#v" }}{{ else }}nil{{ end }}{{ else }}nil{{ end }}{{ else }}nil{{ end }},
+    {{ end }}
+  {{ end }}
+  },
+  },
+{{ end }}
+
+package api
+
+import "time"
+
+type Args struct {
+  Method string
+  URL    string
+  Data   interface{}
+}
+type Want struct {
+  Status int
+  Body   interface{}
+}
+
+var Tests = []struct {
+  Name string
+  Args Args
+  Want Want
+}{
+{{ range $path, $pathItem := .Paths }}
+  {{- with $pathItem.Get }}
+    {{- if .OperationID }}
+      {{ template "test" dict "Method" "Get" "Path" $path "Operation" . }}
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Post }}
+    {{- if .OperationID }}
+      {{ template "test" dict "Method" "Post" "Path" $path "Operation" . }}
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Put }}
+    {{- if .OperationID }}
+      {{ template "test" dict "Method" "Put" "Path" $path "Operation" . }}
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Patch }}
+    {{- if .OperationID }}
+      {{ template "test" dict "Method" "Patch" "Path" $path "Operation" . }}
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Delete }}
+    {{- if .OperationID }}
+      {{ template "test" dict "Method" "Delete" "Path" $path "Operation" . }}
+    {{- end -}}
+  {{- end -}}
+{{ end }}
+}

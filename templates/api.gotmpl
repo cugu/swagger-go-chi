@@ -1,0 +1,307 @@
+{{ define "handler" }}
+  {{- if .OperationID }}
+    func (s *server){{ .OperationID }}Handler(w http.ResponseWriter, r *http.Request) {
+
+    {{- range $parameter := .Parameters }}
+      {{- if eq $parameter.In "path" }}
+        {{- if eq (parametertype $parameter) "string" }}
+          {{ $parameter.Name }}P := chi.URLParam(r, "{{ $parameter.Name }}")
+        {{ else }}
+          {{ $parameter.Name }}P, err := parseURL{{ parametertype $parameter | export }}(r, "{{ $parameter.Name }}")
+          if err != nil {
+          JSONError(w, err)
+          return
+          }
+        {{ end }}
+      {{ else if eq $parameter.In "body" }}
+        // jl, _ := gojsonschema.NewReaderLoader(r.Body)
+        // {{ parametertype $parameter }}Schema.Validate(jl)
+
+        var {{ $parameter.Name }}P {{ parametertype $parameter }}
+        if err := parseBody(r, &{{ $parameter.Name }}P); err != nil {
+        JSONError(w, err)
+        return
+        }
+      {{ else if eq $parameter.In "query" }}
+        {{- if eq (parametertypename (parametertype $parameter)) "String" }}
+          {{ $parameter.Name }}P := r.URL.Query().Get("{{ $parameter.Name }}")
+        {{ else }}
+          {{ $parameter.Name }}P, err := parseQuery{{ if not $parameter.Required}}Optional{{end}}{{ parametertypename (parametertype $parameter) }}(r, "{{ $parameter.Name }}")
+          if err != nil {
+            JSONError(w, err)
+            return
+          }
+        {{- end }}
+      {{ else }}
+        var {{ $parameter.Name }}P {{ parametertype $parameter }}
+        parse{{ $parameter.In | export }}(r, "{{ $parameter.Name }}", &{{ $parameter.Name }}P)
+      {{ end -}}
+    {{- end }}
+    {{- if index .Responses "200" }}
+      result, err := s.service.{{ .OperationID | export }}(r.Context(){{ range $index, $parameter := .Parameters }},{{ if and (not $parameter.Required) (eq (parametertypename (parametertype $parameter)) "String") }}&{{end}}{{ $parameter.Name }}P{{ end -}})
+      response(w, result, err)
+    {{ else }}
+      response(w, nil, s.service.{{ .OperationID | export }}(r.Context(){{ range $index, $parameter := .Parameters }},{{ if and (not $parameter.Required) (eq (parametertypename (parametertype $parameter)) "String") }}&{{end}}{{ $parameter.Name }}P{{ end -}}))
+    {{ end -}}
+    }
+  {{ end -}}
+{{ end }}
+
+package api
+
+import (
+  "encoding/json"
+  "errors"
+  "fmt"
+  "net/http"
+  "strconv"
+  "context"
+
+  "github.com/go-chi/chi"
+  // "github.com/xeipuuv/gojsonschema"
+
+  "{{ .Module }}/{{ .Package }}/model"
+)
+
+type HTTPError struct {
+  Status   int
+  Internal error
+}
+
+func (e *HTTPError) Error() string {
+  return fmt.Sprintf("HTTPError(%d): %s", e.Status, e.Internal)
+}
+
+func (e *HTTPError) Unwrap() error {
+	return e.Internal
+}
+
+type Service interface {
+{{ range $path, $pathItem := .Paths }}
+  {{- with $pathItem.Get }}
+    {{- if .OperationID }}
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Post }}
+    {{- if .OperationID }}
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Put }}
+    {{- if .OperationID }}
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Patch }}
+    {{- if .OperationID }}
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Delete }}
+    {{- if .OperationID }}
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+    {{- end -}}
+  {{- end -}}
+{{ end }}
+}
+
+func NewServer(service Service, roleAuth func([]string)func(http.Handler) http.Handler, middlewares ...func(http.Handler) http.Handler) chi.Router {
+  r := chi.NewRouter()
+  r.Use(middlewares...)
+
+  s := &server{service}
+{{ range $path, $pathItem := .Paths }}
+  {{- with $pathItem.Get }}
+    {{- if .OperationID }}
+      r.With(roleAuth([]string{ {{ .Security | roles | printf "%#v" }} })).Get("{{ $path }}", s.{{ .OperationID }}Handler)
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Post }}
+    {{- if .OperationID }}
+      r.With(roleAuth([]string{ {{ .Security | roles | printf "%#v" }} })).Post("{{ $path }}", s.{{ .OperationID }}Handler)
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Put }}
+    {{- if .OperationID }}
+      r.With(roleAuth([]string{ {{ .Security | roles | printf "%#v" }} })).Put("{{ $path }}", s.{{ .OperationID }}Handler)
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Patch }}
+    {{- if .OperationID }}
+      r.With(roleAuth([]string{ {{ .Security | roles | printf "%#v" }} })).Patch("{{ $path }}", s.{{ .OperationID }}Handler)
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Delete }}
+    {{- if .OperationID }}
+      r.With(roleAuth([]string{ {{ .Security | roles | printf "%#v" }} })).Delete("{{ $path }}", s.{{ .OperationID }}Handler)
+    {{- end -}}
+  {{- end -}}
+{{ end }}
+  return r
+}
+
+type server struct {
+  service Service
+}
+
+{{ range $path, $pathItem := .Paths }}
+  {{- with $pathItem.Get }}
+    {{- if .OperationID }}
+      {{ template "handler" . }}
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Post }}
+    {{- if .OperationID }}
+      {{ template "handler" . }}
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Put }}
+    {{- if .OperationID }}
+      {{ template "handler" . }}
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Patch }}
+    {{- if .OperationID }}
+      {{ template "handler" . }}
+    {{- end -}}
+  {{- end -}}
+  {{- with $pathItem.Delete }}
+    {{- if .OperationID }}
+      {{ template "handler" . }}
+    {{- end -}}
+  {{- end -}}
+{{ end }}
+
+func parseURLInt64(r *http.Request, s string) (int64, error) {
+  i, err := strconv.ParseInt(chi.URLParam(r, s), 10, 64)
+  if err != nil {
+    return 0, fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, err})
+  }
+  return i, nil
+}
+
+func parseURLInt(r *http.Request, s string) (int, error) {
+  i, err := strconv.Atoi(chi.URLParam(r, s))
+  if err != nil {
+    return 0, fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, err})
+  }
+  return i, nil
+}
+
+func parseQueryInt(r *http.Request, s string) (int, error) {
+  i, err := strconv.Atoi(r.URL.Query().Get(s))
+  if err != nil {
+    return 0, fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, err})
+  }
+  return i, nil
+}
+
+func parseQueryBool(r *http.Request, s string) (bool, error) {
+	b, err := strconv.ParseBool(r.URL.Query().Get(s))
+	if err != nil {
+		return false, fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, err})
+	}
+	return b, nil
+}
+
+func parseQueryStringArray(r *http.Request, key string) ([]string, error) {
+	stringArray, ok := r.URL.Query()[key]
+	if !ok {
+		return nil, nil
+	}
+	return removeEmpty(stringArray), nil
+}
+
+func removeEmpty(l []string) []string {
+	var stringArray []string
+	for _, s := range l {
+		if s == "" {
+				continue
+		}
+    stringArray = append(stringArray, s)
+	}
+
+	return stringArray
+}
+
+func parseQueryBoolArray(r *http.Request, key string) ([]bool, error) {
+	stringArray, ok := r.URL.Query()[key]
+	if !ok {
+		return nil, nil
+	}
+	var boolArray []bool
+	for _, s := range stringArray {
+		if s == "" {
+				continue
+		}
+		b, err := strconv.ParseBool(s)
+		if err != nil {
+			return nil, fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, err})
+		}
+		boolArray = append(boolArray, b)
+	}
+
+	return boolArray, nil
+}
+
+func parseQueryOptionalInt(r *http.Request, key string) (*int, error) {
+	s := r.URL.Query().Get(key)
+	if s == "" {
+		return nil, nil
+  }
+
+  i, err := strconv.Atoi(s)
+  if err != nil {
+    return nil, fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, err})
+  }
+  return &i, nil
+}
+
+func parseQueryOptionalStringArray(r *http.Request, key string) ([]string, error) {
+  return parseQueryStringArray(r, key)
+}
+
+func parseQueryOptionalBoolArray(r *http.Request, key string) ([]bool, error) {
+	return parseQueryBoolArray(r, key)
+}
+
+func parseBody(r *http.Request, i interface{}) error {
+  dec := json.NewDecoder(r.Body)
+  err := dec.Decode(i)
+  if err != nil {
+    return fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, err})
+  }
+  return nil
+}
+
+func JSONError(w http.ResponseWriter, err error) {
+  JSONErrorStatus(w, http.StatusInternalServerError, err)
+}
+
+func JSONErrorStatus(w http.ResponseWriter, status int, err error) {
+  w.WriteHeader(status)
+  b, _ := json.Marshal(map[string]string{"error": err.Error()})
+  w.Write(b)
+}
+
+func response(w http.ResponseWriter, v interface{}, err error) {
+  if err != nil {
+    var httpError *HTTPError
+    if errors.As(err, &httpError) {
+      JSONErrorStatus(w, httpError.Status, httpError.Internal)
+      return
+    }
+    JSONError(w, err)
+    return
+  }
+
+  if v == nil {
+    w.WriteHeader(http.StatusNoContent)
+    return
+  }
+  w.WriteHeader(http.StatusOK)
+  b, _ := json.Marshal(v)
+  w.Write(b)
+}
+
