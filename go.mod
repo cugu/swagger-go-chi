@@ -5,7 +5,7 @@ go 1.17
 require (
 	github.com/alecthomas/kong v0.2.22
 	github.com/iancoleman/strcase v0.2.0
-	github.com/rogpeppe/go-internal v1.8.0
+	github.com/rogpeppe/go-internal v1.8.1
 	github.com/tidwall/sjson v1.2.4
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
