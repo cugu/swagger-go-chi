@@ -3,7 +3,7 @@ module github.com/cugu/swagger-go-chi
 go 1.17
 
 require (
-	github.com/alecthomas/kong v0.4.0
+	github.com/alecthomas/kong v0.4.1
 	github.com/iancoleman/strcase v0.2.0
 	github.com/rogpeppe/go-internal v1.8.1
 	github.com/tidwall/sjson v1.2.4
