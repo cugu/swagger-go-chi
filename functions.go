@@ -13,23 +13,28 @@ import (
 )
 
 var funcs = map[string]interface{}{
-	"camel":             camel,
-	"gotype":            gotype,
-	"omitempty":         omitempty,
-	"tojson":            tojson,
-	"export":            camel,
-	"parametertype":     parametertype,
-	"parametertypename": parametertypename,
-	"responsetype":      responsetype,
-	"path":              fullpath,
-	"body":              body,
-	"dict":              dict,
-	"roles":             roles,
+	"camel":                  camel,
+	"gotype":                 gotype,
+	"omitempty":              omitempty,
+	"tojson":                 tojson,
+	"export":                 camel,
+	"parametertype":          parametertype,
+	"parametertypenopointer": parametertypenopointer,
+	"parametertypename":      parametertypename,
+	"responsetype":           responsetype,
+	"path":                   fullpath,
+	"body":                   body,
+	"dict":                   dict,
+	"roles":                  roles,
 }
 
 func gotype(name string, s Schema, required []string) string {
 	_, x := sgotype("", name, s, required, false)
 	return x
+}
+
+func parametertypenopointer(parameter Parameter) string {
+	return strings.TrimPrefix(parametertype(parameter), "*")
 }
 
 func parametertype(parameter Parameter) string {

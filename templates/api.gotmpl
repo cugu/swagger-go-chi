@@ -14,11 +14,35 @@
           }
         {{ end }}
       {{ else if eq $parameter.In "body" }}
-        // jl, _ := gojsonschema.NewReaderLoader(r.Body)
-        // {{ parametertype $parameter }}Schema.Validate(jl)
+        body, err := io.ReadAll(r.Body)
+        if err != nil {
+          JSONError(w, err)
+          return
+        }
+
+	      {{ if ne $parameter.Schema.Ref "" }}
+          jl := gojsonschema.NewBytesLoader(body)
+          validationResult, err := {{ parametertypenopointer $parameter }}Schema.Validate(jl)
+          if err != nil {
+            JSONError(w, err)
+            return
+          }
+          if !validationResult.Valid() {
+            w.WriteHeader(http.StatusUnprocessableEntity)
+
+			      var valdiationErrors []string
+			      for _, valdiationError := range validationResult.Errors() {
+              valdiationErrors = append(valdiationErrors, valdiationError.String())
+            }
+
+            b, _ := json.Marshal(map[string]interface{}{"error": "wrong input", "errors": valdiationErrors})
+            w.Write(b)
+            return
+          }
+        {{- end }}
 
         var {{ $parameter.Name }}P {{ parametertype $parameter }}
-        if err := parseBody(r, &{{ $parameter.Name }}P); err != nil {
+        if err := parseBody(body, &{{ $parameter.Name }}P); err != nil {
         JSONError(w, err)
         return
         }
@@ -50,15 +74,17 @@
 package api
 
 import (
+	"bytes"
   "encoding/json"
   "errors"
   "fmt"
+  "io"
   "net/http"
   "strconv"
   "context"
 
   "github.com/go-chi/chi"
-  // "github.com/xeipuuv/gojsonschema"
+  "github.com/xeipuuv/gojsonschema"
 
   "{{ .Module }}/{{ .Package }}/model"
 )
@@ -266,8 +292,8 @@ func parseQueryOptionalBoolArray(r *http.Request, key string) ([]bool, error) {
 	return parseQueryBoolArray(r, key)
 }
 
-func parseBody(r *http.Request, i interface{}) error {
-  dec := json.NewDecoder(r.Body)
+func parseBody(b []byte, i interface{}) error {
+  dec := json.NewDecoder(bytes.NewBuffer(b))
   err := dec.Decode(i)
   if err != nil {
     return fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, err})
