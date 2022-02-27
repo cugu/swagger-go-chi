@@ -8,25 +8,27 @@ import (
 
 var (
     schemaLoader = gojsonschema.NewSchemaLoader()
-    {{ range $index, $element := .Definitions }}{{ $index }}Schema = new(gojsonschema.Schema)
+    {{ range $index, $element := .Swagger.Definitions }}{{ $index }}Schema = new(gojsonschema.Schema)
 {{ end }})
 
 func init() {
     err := schemaLoader.AddSchemas(
-    {{ range $index, $element := .Definitions }}gojsonschema.NewStringLoader(`{{ tojson $index $element }}`),
+    {{ range $index, $element := .Swagger.Definitions }}gojsonschema.NewStringLoader(`{{ toJSON $index $element }}`),
     {{ end }}
     )
     if err != nil {
         panic(err)
     }
 
-    {{ range $index, $element := .Definitions }}{{ $index }}Schema = mustCompile(`#/definitions/{{ $index }}`)
+    {{ range $index, $element := .Swagger.Definitions }}{{ $index }}Schema = mustCompile(`#/definitions/{{ $index }}`)
 {{ end }}}
 
-{{ range $index, $element := .Definitions }}
+{{ range $index, $element := .Swagger.Definitions }}{{ if eq $element.Type "object" }}
 type {{ $index }} struct {
-	{{ range $pindex, $pelement := .Properties }} {{ camel $pindex }} {{ gotype $pindex $pelement $element.Required }} `json:"{{ $pindex }}{{ if omitempty $pindex $element.Required }},omitempty{{ end }}"`
-{{ end }}}
+	{{ range $pindex, $pelement := .Properties }} {{ export $pindex }} {{ goType $pindex $pelement $element.Required }} `json:"{{ $pindex }}{{ if omitempty $pindex $element.Required }},omitempty{{ end }}"`
+{{ end }}}{{ end }}{{ if eq $element.Type "array" }}
+type {{ $index }} []{{ goType "" $element.Items $element.Required }}
+{{ end }}
 
 {{ end }}
 
@@ -39,7 +41,7 @@ func mustCompile(uri string) *gojsonschema.Schema {
 }
 
 const (
-{{ range $index, $element := .Definitions }}{{ range $pindex, $pelement := .Properties }}{{ range $eindex, $eelement := .Enum }}
-{{ $index | camel }}{{ $pindex | camel }}{{ $eelement | camel }} = "{{ $eelement }}"
+{{ range $index, $element := .Swagger.Definitions }}{{ range $pindex, $pelement := .Properties }}{{ range $eindex, $eelement := .Enum }}
+{{ $index | export }}{{ $pindex | export }}{{ $eelement | export }} = "{{ $eelement }}"
 {{ end }}{{ end }}{{ end }}
 )

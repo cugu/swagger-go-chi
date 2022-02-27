@@ -4,10 +4,10 @@
 
     {{- range $parameter := .Parameters }}
       {{- if eq $parameter.In "path" }}
-        {{- if eq (parametertype $parameter) "string" }}
+        {{- if eq (parameterType $parameter) "string" }}
           {{ $parameter.Name }}P := chi.URLParam(r, "{{ $parameter.Name }}")
         {{ else }}
-          {{ $parameter.Name }}P, err := parseURL{{ parametertype $parameter | export }}(r, "{{ $parameter.Name }}")
+          {{ $parameter.Name }}P, err := parseURL{{ parameterType $parameter | export }}(r, "{{ $parameter.Name }}")
           if err != nil {
           JSONError(w, err)
           return
@@ -22,7 +22,7 @@
 
 	      {{ if ne $parameter.Schema.Ref "" }}
           jl := gojsonschema.NewBytesLoader(body)
-          validationResult, err := {{ parametertypenopointer $parameter }}Schema.Validate(jl)
+          validationResult, err := {{ parameterName $parameter }}Schema.Validate(jl)
           if err != nil {
             JSONError(w, err)
             return
@@ -41,31 +41,31 @@
           }
         {{- end }}
 
-        var {{ $parameter.Name }}P {{ parametertype $parameter }}
+        var {{ $parameter.Name }}P {{ parameterType $parameter }}
         if err := parseBody(body, &{{ $parameter.Name }}P); err != nil {
         JSONError(w, err)
         return
         }
       {{ else if eq $parameter.In "query" }}
-        {{- if eq (parametertypename (parametertype $parameter)) "String" }}
+        {{- if eq (parameterName $parameter) "String" }}
           {{ $parameter.Name }}P := r.URL.Query().Get("{{ $parameter.Name }}")
         {{ else }}
-          {{ $parameter.Name }}P, err := parseQuery{{ if not $parameter.Required}}Optional{{end}}{{ parametertypename (parametertype $parameter) }}(r, "{{ $parameter.Name }}")
+          {{ $parameter.Name }}P, err := parseQuery{{ if not $parameter.Required}}Optional{{end}}{{ parameterName $parameter }}(r, "{{ $parameter.Name }}")
           if err != nil {
             JSONError(w, err)
             return
           }
         {{- end }}
       {{ else }}
-        var {{ $parameter.Name }}P {{ parametertype $parameter }}
+        var {{ $parameter.Name }}P {{ parameterType $parameter }}
         parse{{ $parameter.In | export }}(r, "{{ $parameter.Name }}", &{{ $parameter.Name }}P)
       {{ end -}}
     {{- end }}
     {{- if index .Responses "200" }}
-      result, err := s.service.{{ .OperationID | export }}(r.Context(){{ range $index, $parameter := .Parameters }},{{ if and (not $parameter.Required) (eq (parametertypename (parametertype $parameter)) "String") }}&{{end}}{{ $parameter.Name }}P{{ end -}})
+      result, err := s.service.{{ .OperationID | export }}(r.Context(){{ range $index, $parameter := .Parameters }},{{ if and (not $parameter.Required) (eq (parameterName $parameter) "String") }}&{{end}}{{ $parameter.Name }}P{{ end -}})
       response(w, result, err)
     {{ else }}
-      response(w, nil, s.service.{{ .OperationID | export }}(r.Context(){{ range $index, $parameter := .Parameters }},{{ if and (not $parameter.Required) (eq (parametertypename (parametertype $parameter)) "String") }}&{{end}}{{ $parameter.Name }}P{{ end -}}))
+      response(w, nil, s.service.{{ .OperationID | export }}(r.Context(){{ range $index, $parameter := .Parameters }},{{ if and (not $parameter.Required) (eq (parameterName $parameter) "String") }}&{{end}}{{ $parameter.Name }}P{{ end -}}))
     {{ end -}}
     }
   {{ end -}}
@@ -74,7 +74,7 @@
 package api
 
 import (
-	"bytes"
+  "bytes"
   "encoding/json"
   "errors"
   "fmt"
@@ -86,7 +86,7 @@ import (
   "github.com/go-chi/chi"
   "github.com/xeipuuv/gojsonschema"
 
-  "{{ .Module }}/{{ .Package }}/model"
+  "{{ .ImportPath }}/model"
 )
 
 type HTTPError struct {
@@ -103,30 +103,30 @@ func (e *HTTPError) Unwrap() error {
 }
 
 type Service interface {
-{{ range $path, $pathItem := .Paths }}
+{{ range $path, $pathItem := .Swagger.Paths }}
   {{- with $pathItem.Get }}
     {{- if .OperationID }}
-      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parameterType $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responseType .Responses }}, {{ end }}error)
     {{- end -}}
   {{- end -}}
   {{- with $pathItem.Post }}
     {{- if .OperationID }}
-      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parameterType $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responseType .Responses }}, {{ end }}error)
     {{- end -}}
   {{- end -}}
   {{- with $pathItem.Put }}
     {{- if .OperationID }}
-      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parameterType $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responseType .Responses }}, {{ end }}error)
     {{- end -}}
   {{- end -}}
   {{- with $pathItem.Patch }}
     {{- if .OperationID }}
-      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parameterType $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responseType .Responses }}, {{ end }}error)
     {{- end -}}
   {{- end -}}
   {{- with $pathItem.Delete }}
     {{- if .OperationID }}
-      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parametertype $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responsetype .Responses }}, {{ end }}error)
+      {{ .OperationID | export }}(context.Context{{ range $index, $parameter := .Parameters }},{{ parameterType $parameter }}{{ end -}}) ({{ if index .Responses "200" }}{{ responseType .Responses }}, {{ end }}error)
     {{- end -}}
   {{- end -}}
 {{ end }}
@@ -137,7 +137,7 @@ func NewServer(service Service, roleAuth func([]string)func(http.Handler) http.H
   r.Use(middlewares...)
 
   s := &server{service}
-{{ range $path, $pathItem := .Paths }}
+{{ range $path, $pathItem := .Swagger.Paths }}
   {{- with $pathItem.Get }}
     {{- if .OperationID }}
       r.With(roleAuth([]string{ {{ .Security | roles | printf "%#v" }} })).Get("{{ $path }}", s.{{ .OperationID }}Handler)
@@ -171,7 +171,7 @@ type server struct {
   service Service
 }
 
-{{ range $path, $pathItem := .Paths }}
+{{ range $path, $pathItem := .Swagger.Paths }}
   {{- with $pathItem.Get }}
     {{- if .OperationID }}
       {{ template "handler" . }}

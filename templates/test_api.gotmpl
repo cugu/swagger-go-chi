@@ -1,7 +1,7 @@
 {{ define "test" }}
   {
   Name: "{{ .Operation.OperationID | export }}",
-  Args: Args{Method: "{{ .Method }}", URL: {{ path .Path .Operation.Parameters | printf "%#v" }}{{ if .Operation.Parameters | body }}, Data: {{ .Operation.Parameters | body | printf "%#v" }}{{ end }}},
+  Args: Args{Method: "{{ .Method }}", URL: {{ examplePath .Path .Operation.Parameters | printf "%#v" }}{{ if .Operation.Parameters | exampleBody }}, Data: {{ .Operation.Parameters | exampleBody | printf "%#v" }}{{ end }}},
   Want: Want{
   {{- if index .Operation.Responses "200" }}
     {{- with index .Operation.Responses "200" }}
@@ -37,7 +37,7 @@ var Tests = []struct {
   Args Args
   Want Want
 }{
-{{ range $path, $pathItem := .Paths }}
+{{ range $path, $pathItem := .Swagger.Paths }}
   {{- with $pathItem.Get }}
     {{- if .OperationID }}
       {{ template "test" dict "Method" "Get" "Path" $path "Operation" . }}
