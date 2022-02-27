@@ -48,6 +48,9 @@ func toMapFS(dirPath string) (fstest.MapFS, error) {
 		if d.IsDir() {
 			return nil
 		}
+		if err != nil {
+			return err
+		}
 
 		f, err := fsys.Open(path)
 		if err != nil {

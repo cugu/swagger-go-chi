@@ -192,11 +192,7 @@ func dict(values ...interface{}) (map[string]interface{}, error) {
 
 func roles(reqs []*Security) string {
 	for _, req := range reqs {
-		var roles []string
-		for _, scope := range req.Roles {
-			roles = append(roles, scope)
-		}
-		return strings.Join(roles, ", ")
+		return strings.Join(req.Roles, ", ")
 	}
 	return ""
 }
