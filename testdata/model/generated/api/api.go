@@ -2,18 +2,14 @@ package api
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi"
 	"github.com/xeipuuv/gojsonschema"
-
-	"github.com/cugu/swagger-go-chi/testdata/customarray/model"
 )
 
 type HTTPError struct {
@@ -27,59 +23,6 @@ func (e *HTTPError) Error() string {
 
 func (e *HTTPError) Unwrap() error {
 	return e.Internal
-}
-
-type Service interface {
-	CreateUserBatch(context.Context, *model.UserArray) error
-}
-
-func NewServer(service Service, roleAuth func([]string) func(http.Handler) http.Handler, middlewares ...func(http.Handler) http.Handler) chi.Router {
-	r := chi.NewRouter()
-	r.Use(middlewares...)
-
-	s := &server{service}
-
-	r.With(roleAuth([]string{""})).Post("/users", s.createUserBatchHandler)
-	return r
-}
-
-type server struct {
-	service Service
-}
-
-func (s *server) createUserBatchHandler(w http.ResponseWriter, r *http.Request) {
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		JSONError(w, err)
-		return
-	}
-
-	jl := gojsonschema.NewBytesLoader(body)
-	validationResult, err := model.UserArraySchema.Validate(jl)
-	if err != nil {
-		JSONError(w, err)
-		return
-	}
-	if !validationResult.Valid() {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-
-		var valdiationErrors []string
-		for _, valdiationError := range validationResult.Errors() {
-			valdiationErrors = append(valdiationErrors, valdiationError.String())
-		}
-
-		b, _ := json.Marshal(map[string]interface{}{"error": "wrong input", "errors": valdiationErrors})
-		w.Write(b)
-		return
-	}
-
-	var usersP *model.UserArray
-	if err := parseBody(body, &usersP); err != nil {
-		JSONError(w, err)
-		return
-	}
-
-	response(w, nil, s.service.CreateUserBatch(r.Context(), usersP))
 }
 
 func parseURLInt64(r *http.Request, s string) (int64, error) {
@@ -212,4 +155,38 @@ func response(w http.ResponseWriter, v interface{}, err error) {
 	w.WriteHeader(http.StatusOK)
 	b, _ := json.Marshal(v)
 	w.Write(b)
+}
+
+func validateSchema(body []byte, schema *gojsonschema.Schema, w http.ResponseWriter) bool {
+	jl := gojsonschema.NewBytesLoader(body)
+	validationResult, err := schema.Validate(jl)
+	if err != nil {
+		JSONError(w, err)
+		return true
+	}
+	if !validationResult.Valid() {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+
+		var validationErrors []string
+		for _, valdiationError := range validationResult.Errors() {
+			validationErrors = append(validationErrors, valdiationError.String())
+		}
+
+		b, _ := json.Marshal(map[string]interface{}{"error": "wrong input", "errors": validationErrors})
+		w.Write(b)
+		return true
+	}
+	return false
+}
+
+func NilMiddleware() func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+func IgnoreRoles(_ []string) func(next http.Handler) http.Handler {
+	return NilMiddleware()
 }

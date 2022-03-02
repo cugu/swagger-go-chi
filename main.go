@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"testing/fstest"
 
 	"github.com/alecthomas/kong"
 )
@@ -40,12 +41,16 @@ func run() error {
 		return err
 	}
 
+	return writeFiles(files, config.Directory)
+}
+
+func writeFiles(files fstest.MapFS, dst string) error {
 	for name, file := range files {
-		if err := os.MkdirAll(path.Join(config.Directory, path.Dir(name)), os.ModePerm); err != nil {
+		if err := os.MkdirAll(path.Join(dst, path.Dir(name)), os.ModePerm); err != nil {
 			return err
 		}
 
-		if err := os.WriteFile(path.Join(config.Directory, name), file.Data, file.Mode); err != nil {
+		if err := os.WriteFile(path.Join(dst, name), file.Data, file.Mode); err != nil {
 			return err
 		}
 	}

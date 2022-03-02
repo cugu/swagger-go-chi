@@ -5,7 +5,6 @@ import (
 	"io/fs"
 	"os"
 	"path"
-	"strings"
 	"testing"
 	"testing/fstest"
 
@@ -25,7 +24,7 @@ func Test_generate(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			got, err := generate("github.com/cugu/swagger-go-chi/testdata/"+dir.Name(), yamlData)
+			got, err := generate("github.com/cugu/swagger-go-chi/testdata/"+dir.Name()+"/generated", yamlData)
 			if (err != nil) != false {
 				t.Errorf("generate() error = %v, wantErr %v", err, false)
 				return
@@ -37,8 +36,27 @@ func Test_generate(t *testing.T) {
 			}
 
 			assert.Equal(t, want, got)
+			assertFS(t, want, got)
 		})
 	}
+}
+
+func assertFS(t *testing.T, want, got fstest.MapFS) {
+	wantNames := keys(want)
+	gotNames := keys(got)
+	assert.ElementsMatch(t, wantNames, gotNames)
+
+	for _, name := range wantNames {
+		assert.Equal(t, string(want[name].Data), string(got[name].Data))
+	}
+}
+
+func keys(mapfs fstest.MapFS) []string {
+	var names []string
+	for name := range mapfs {
+		names = append(names, name)
+	}
+	return names
 }
 
 func toMapFS(dirPath string) (fstest.MapFS, error) {
@@ -62,7 +80,7 @@ func toMapFS(dirPath string) (fstest.MapFS, error) {
 			return err
 		}
 
-		want[strings.TrimSuffix(path, "txt")] = &fstest.MapFile{Data: b, Mode: os.ModePerm}
+		want[path] = &fstest.MapFile{Data: b, Mode: os.ModePerm}
 
 		return nil
 	})
