@@ -221,7 +221,7 @@ func Group(allowedGroups ...string) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			user, ok := r.Context().Value(UserContext).(*Claims)
 			if ok {
-				if !(contains(user.Groups, allowedGroups)) { // || contains([]string{"service"}, user.ResourceAccess.Infinity.Roles)) {
+				if !(contains(user.Groups, allowedGroups)) { // || contains([]string{"service"}, user.ResourceAccess.App.Roles)) {
 					api.JSONErrorStatus(w, http.StatusUnauthorized, errors.New("group not allowed"))
 					return
 				}
