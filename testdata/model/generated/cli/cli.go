@@ -77,6 +77,6 @@ func NewServer(config CLI, s api.Service, fsys fs.FS) (chi.Router, error) {
 		staticHandler = api.Proxy("http://localhost:8080")
 	}
 	server.Get("/manifest.json", staticHandler)
-	server.NotFound(staticHandler)
+	server.With(middlewares...).NotFound(staticHandler)
 	return server, nil
 }
