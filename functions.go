@@ -37,6 +37,10 @@ func parameterType(parameter Parameter) string {
 	}
 
 	s := parameter.Schema
+	if parameter.In == "formData" && parameter.Type != "file" {
+		return "[]string" // This parameter type can be anything but parsing has to be done as string array
+	}
+
 	if parameter.Type != "" {
 		s = &Schema{
 			Format:      parameter.Format,
@@ -94,6 +98,8 @@ func schemaType(pkg, name string, s *Schema, required []string, nopointer bool) 
 		}
 	case "boolean":
 		t = req + "bool"
+	case "file":
+		t = req + "[]*multipart.FileHeader"
 	case "object":
 		if s.AdditionalProperties != nil {
 			subType := schemaType(pkg, name, s.AdditionalProperties, required, true)

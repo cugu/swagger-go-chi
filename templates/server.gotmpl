@@ -1,7 +1,24 @@
 {{ define "handler" }}
   {{- if .OperationID }}
     func (s *server){{ .OperationID }}Handler(w http.ResponseWriter, r *http.Request) {
-
+    {{- $multiPart := 0}}
+    {{- range $parameter := .Parameters }}
+      {{- if eq $parameter.In "formData" }}
+        {{- $multiPart = 1}}
+      {{- end }}
+    {{- end }}
+    {{- if $multiPart}}
+	  const MaxFileSize = 32 << 20 // maximum file size of about 32 MB
+	  if r.ContentLength > MaxFileSize {
+		JSONErrorStatus(w, http.StatusExpectationFailed, errors.New("request too large"))
+		return
+	  }
+	  err := r.ParseMultipartForm(MaxFileSize)
+      if err != nil {
+        JSONError(w, err)
+        return
+      }
+    {{- end}}
     {{- range $parameter := .Parameters }}
       {{- if eq $parameter.In "path" }}
         {{- if eq (parameterType $parameter) "string" }}
@@ -41,6 +58,12 @@
             return
           }
         {{- end }}
+      {{ else if eq $parameter.In "formData" }}
+        {{- if eq $parameter.Type "file" }}
+          {{ $parameter.Name }}P := r.MultipartForm.File["{{ $parameter.Name }}"]
+        {{- else }}
+          {{ $parameter.Name }}P := r.MultipartForm.Value["{{ $parameter.Name }}"]
+        {{- end }}
       {{ else }}
         var {{ $parameter.Name }}P {{ parameterType $parameter }}
         parse{{ $parameter.In | export }}(r, "{{ $parameter.Name }}", &{{ $parameter.Name }}P)
@@ -59,8 +82,31 @@
 package api
 
 import (
+  {{- $multiPartImport := 0 }}
+  {{- range $path, $pathItem := .Swagger.Paths }}
+    {{- with $pathItem.Put }}
+      {{- range $parameter := .Parameters }}
+        {{- if eq $parameter.In "formData" }}
+          {{- $multiPartImport = 1 }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    {{- with $pathItem.Post }}
+      {{- range $parameter := .Parameters }}
+        {{- if eq $parameter.In "formData" }}
+          {{- $multiPartImport = 1 }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+  {{- end }}
   "context"
+  {{- if $multiPartImport }}
+    "errors"
+  {{- end }}
   "io"
+  {{- if $multiPartImport }}
+    "mime/multipart"
+  {{- end }}
   "net/http"
 
   "github.com/go-chi/chi"
