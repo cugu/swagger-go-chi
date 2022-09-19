@@ -161,6 +161,8 @@ func Test_parameterType(t *testing.T) {
 		{"optional integer", args{Parameter{Name: "no", In: "query", Required: false, Type: "integer", Format: "int64", Examples: 123}}, "*int64"},
 		{"custom", args{Parameter{Name: "user", In: "body", Required: true, Schema: &Schema{Ref: "#/definitions/User"}}}, "*model.User"},
 		{"custom array", args{Parameter{Name: "users", In: "body", Required: true, Schema: &Schema{Type: "array", Items: &Schema{Ref: "#/definitions/User"}}}}, "[]*model.User"},
+		{"formData string", args{Parameter{Name: "users", In: "formData", Required: true, Type: "string"}}, "[]string"},
+		{"formData file", args{Parameter{Name: "users", In: "formData", Required: true, Type: "file"}}, "[]*multipart.FileHeader"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

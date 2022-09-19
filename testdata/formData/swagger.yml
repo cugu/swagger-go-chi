@@ -1,0 +1,22 @@
+swagger: "2.0"
+info:
+  title: Sample API
+  description: API description in Markdown.
+  version: 1.0.0
+host: api.example.com
+basePath: /v1
+schemes:
+  - https
+paths:
+  /file:
+    put:
+      summary: "Upload file"
+      operationId: "uploadFile"
+      security: [ { roles: ["uploadSystemData"] } ]
+      consumes:
+        - multipart/form-data
+      parameters:
+        - { name: upload, in: "formData", type: file, required: true }
+        - { name: metadata, in: "formData", type: string, required: true }
+      responses:
+        "201": { description: "Created" }
