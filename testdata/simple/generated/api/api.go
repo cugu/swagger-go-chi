@@ -148,7 +148,7 @@ func parseBody(b []byte, i interface{}) error {
 }
 
 func JSONError(w http.ResponseWriter, err error) {
-	JSONErrorStatus(w, http.StatusInternalServerError, err)
+	JSONErrorStatus(w, http.StatusBadRequest, err)
 }
 
 func JSONErrorStatus(w http.ResponseWriter, status int, err error) {
