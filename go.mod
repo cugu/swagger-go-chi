@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/alecthomas/kong v0.6.1
 	github.com/go-chi/chi v1.5.4
-	github.com/iancoleman/strcase v0.2.0
+	github.com/iancoleman/strcase v0.3.0
 	github.com/rogpeppe/go-internal v1.8.1
 	github.com/stretchr/testify v1.8.0
 	github.com/tidwall/sjson v1.2.5
