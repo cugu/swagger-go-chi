@@ -62,6 +62,9 @@ func parseQueryStringArray(r *http.Request, key string) ([]string, error) {
 	if !ok {
 		return nil, nil
 	}
+	if len(stringArray) > 1000 {
+		return nil, fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, errors.New("too many items in query parameter")})
+	}
 	return removeEmpty(stringArray), nil
 }
 
@@ -81,6 +84,9 @@ func parseQueryBoolArray(r *http.Request, key string) ([]bool, error) {
 	stringArray, ok := r.URL.Query()[key]
 	if !ok {
 		return nil, nil
+	}
+	if len(stringArray) > 1000 {
+		return nil, fmt.Errorf("%w", &HTTPError{http.StatusUnprocessableEntity, errors.New("too many items in query parameter")})
 	}
 	var boolArray []bool
 	for _, s := range stringArray {
